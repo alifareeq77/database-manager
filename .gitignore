@@ -1,0 +1,17 @@
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# App data (metadata DB, generated secret key, SQLite files)
+backend/data/
+*.db
+secret.key
+.env
+.env.*
+# Node / Next
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/next-env.d.ts
+*.tsbuildinfo

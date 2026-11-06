@@ -1,0 +1,49 @@
+# Local development stack for Strata.
+#   docker compose up -d postgres mysql      -> sample databases only
+#   docker compose up --build                -> full stack (backend + frontend + sample DBs)
+services:
+  backend:
+    build: ./backend
+    environment:
+      STRATA_SECRET_KEY: ${STRATA_SECRET_KEY:-change-me-in-production-please-32b}
+      STRATA_DATA_DIR: /data
+      STRATA_COOKIE_SECURE: "false"
+    volumes:
+      - strata-data:/data
+    ports:
+      - "8000:8000"
+    depends_on: [postgres, mysql]
+
+  frontend:
+    build: ./frontend
+    environment:
+      STRATA_API_URL: http://backend:8000
+    ports:
+      - "3000:3000"
+    depends_on: [backend]
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: strata
+      POSTGRES_PASSWORD: strata_dev_pw
+      POSTGRES_DB: shop
+    ports:
+      - "54329:5432"
+    volumes:
+      - ./docker/seed/postgres.sql:/docker-entrypoint-initdb.d/01-seed.sql:ro
+
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: strata_dev_root
+      MYSQL_USER: strata
+      MYSQL_PASSWORD: strata_dev_pw
+      MYSQL_DATABASE: blog
+    ports:
+      - "33069:3306"
+    volumes:
+      - ./docker/seed/mysql.sql:/docker-entrypoint-initdb.d/01-seed.sql:ro
+
+volumes:
+  strata-data:
