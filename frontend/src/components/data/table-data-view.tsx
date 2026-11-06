@@ -17,6 +17,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { api, downloadExport } from "@/lib/api";
 import { formatDuration, formatNumber } from "@/lib/format";
 import { insertStatements } from "@/lib/sql";
+import { matchesTable, onDataChanged } from "@/lib/events";
 import type { CellValue, Connection, DataPage, DataRequest, FilterOp, SortSpec } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useHotkey } from "@/hooks/use-hotkey";
@@ -96,6 +97,21 @@ export function TableDataView({ tab, conn, active }: { tab: TableTabT; conn: Con
   }, [load]);
 
   const pending = Object.keys(edits).length + deleted.size;
+
+  // Rows changed elsewhere (import, truncate, DDL): reload unless the user has unsaved edits here.
+  const pendingRef = useRef(0);
+  useEffect(() => {
+    pendingRef.current = pending;
+  }, [pending]);
+  useEffect(
+    () =>
+      onDataChanged((d) => {
+        if (!matchesTable(d, conn.id, tab.database, tab.schema, tab.table)) return;
+        if (pendingRef.current) toast.info(`${tab.table} changed`, { description: "Refresh after saving or discarding your edits." });
+        else void load();
+      }),
+    [conn.id, tab.database, tab.schema, tab.table, load],
+  );
   const columns: GridColumn[] = useMemo(
     () => (data?.columns ?? []).map((c) => ({ name: c.name, category: c.category, dataType: c.data_type, isPk: c.is_primary_key, nullable: c.nullable })),
     [data],
@@ -158,7 +174,7 @@ export function TableDataView({ tab, conn, active }: { tab: TableTabT; conn: Con
 
   useHotkey("mod+s", () => void save(), { enabled: active });
   useHotkey("mod+f", () => setShowFilters(true), { enabled: active });
-  useHotkey("mod+r", () => void guardPending().then((ok) => ok && load()), { enabled: active });
+  useHotkey("mod+r", () => void guardPending().then((ok) => { if (ok) void load(); }), { enabled: active });
 
   function addFilter(column: string, op: FilterOp, value: CellValue) {
     const f: DraftFilter = { id: Date.now(), column, op, value: typeof value === "object" && value !== null ? JSON.stringify(value) : value, enabled: true };
@@ -223,7 +239,7 @@ export function TableDataView({ tab, conn, active }: { tab: TableTabT; conn: Con
         </DropdownMenu>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon-sm" onClick={() => void guardPending().then((ok) => ok && load())} aria-label="Refresh">
+            <Button variant="ghost" size="icon-sm" onClick={() => void guardPending().then((ok) => { if (ok) void load(); })} aria-label="Refresh">
               <RefreshCw className={cn(loading && "animate-spin")} />
             </Button>
           </TooltipTrigger>

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/context-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import { onObjectsChanged } from "@/lib/events";
 import { formatNumber } from "@/lib/format";
 import type { ColumnInfo, Connection, DbObject, ObjectKind, SchemaInfo } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -82,6 +83,16 @@ export function ExplorerTree({ connection, filter }: { connection: Connection; f
     useConnections.getState().invalidateCatalog(connection.id);
   }, [connection.id, update]);
 
+  // DDL applied elsewhere (structure view, create table, drop): reload object lists for this connection.
+  useEffect(
+    () =>
+      onObjectsChanged((d) => {
+        if (d.connectionId !== connection.id) return;
+        update((c) => Object.fromEntries(Object.entries(c).filter(([k]) => !k.endsWith("|objects") && !k.includes("|cols:"))));
+      }),
+    [connection.id, update],
+  );
+
   const ctx = useMemo(() => ({ conn: connection, filter: filter.trim().toLowerCase(), cache, expanded, toggle, load, refresh }), [connection, filter, cache, expanded, toggle, load, refresh]);
 
   if (status === "connecting" || status === undefined) return <TreeSkeleton />;
@@ -126,7 +137,11 @@ function TreeSkeleton() {
 function DatabaseList() {
   const { conn, cache, load, toggle, expanded } = useTree();
   const key = "dbs";
-  useEffect(() => load(key, () => api.explorer.databases(conn.id)), [conn.id, load]);
+  // Re-runs when the entry is evicted by a refresh, not only on mount.
+  const missing = !cache[key];
+  useEffect(() => {
+    if (missing) load(key, () => api.explorer.databases(conn.id));
+  }, [conn.id, load, missing]);
   const entry = cache[key] as Loadable<SchemaInfo[]> | undefined;
 
   // Expand the connection's default database once loaded.
@@ -182,7 +197,11 @@ function DatabaseNode({ db }: { db: SchemaInfo }) {
 function SchemaList({ database }: { database: string }) {
   const { conn, cache, load, toggle, expanded, filter } = useTree();
   const key = `db:${database}|schemas`;
-  useEffect(() => load(key, () => api.explorer.schemas(conn.id, database)), [conn.id, database, key, load]);
+  // Re-runs when the entry is evicted by a refresh, not only on mount.
+  const missing = !cache[key];
+  useEffect(() => {
+    if (missing) load(key, () => api.explorer.schemas(conn.id, database));
+  }, [conn.id, database, key, load, missing]);
   const entry = cache[key] as Loadable<SchemaInfo[]> | undefined;
   const didAuto = useRef(false);
   useEffect(() => {
@@ -240,7 +259,11 @@ function ObjectGroups({ database, schema, depth }: { database: string | null; sc
   const { conn, cache, load, filter } = useTree();
   const key = `db:${database ?? ""}|sc:${schema ?? ""}|objects`;
   const fetcher = useCallback(() => api.explorer.objects(conn.id, database, schema), [conn.id, database, schema]);
-  useEffect(() => load(key, fetcher), [key, fetcher, load]);
+  // Re-runs when the entry is evicted by a refresh, not only on mount.
+  const missing = !cache[key];
+  useEffect(() => {
+    if (missing) load(key, fetcher);
+  }, [key, fetcher, load, missing]);
   const entry = cache[key] as Loadable<DbObject[]> | undefined;
   if (!entry || entry.state === "loading") return <LoadingRow depth={depth} />;
   if (entry.state === "error") return <TreeError depth={depth} error={entry.error} onRetry={() => load(key, fetcher, true)} />;
@@ -370,7 +393,11 @@ function ColumnList({ database, schema, table, depth }: { database: string | nul
   const { conn, cache, load } = useTree();
   const key = `db:${database ?? ""}|sc:${schema ?? ""}|cols:${table}`;
   const fetcher = useCallback(() => api.explorer.structure(conn.id, database, schema, table).then((s) => s.columns), [conn.id, database, schema, table]);
-  useEffect(() => load(key, fetcher), [key, fetcher, load]);
+  // Re-runs when the entry is evicted by a refresh, not only on mount.
+  const missing = !cache[key];
+  useEffect(() => {
+    if (missing) load(key, fetcher);
+  }, [key, fetcher, load, missing]);
   const entry = cache[key] as Loadable<ColumnInfo[]> | undefined;
   if (!entry || entry.state === "loading") return <LoadingRow depth={depth} />;
   if (entry.state === "error") return <TreeError depth={depth} error={entry.error} onRetry={() => load(key, fetcher, true)} />;
@@ -396,6 +423,7 @@ function Row({
     <div
       {...rest}
       role="treeitem"
+      aria-selected={false}
       aria-expanded={expandable ? !!open : undefined}
       tabIndex={0}
       title={title}

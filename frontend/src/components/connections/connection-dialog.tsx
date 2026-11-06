@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CheckCircle2, Loader2, Plus, ShieldCheck, Trash2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,9 @@ export function ConnectionDialog() {
   const { open, editId } = useUi((s) => s.connectionDialog);
   const close = useUi((s) => s.closeConnectionDialog);
   const existing = useConnections((s) => s.connections.find((c) => c.id === editId));
-  const groups = useConnections((s) => [...new Set(s.connections.map((c) => c.group).filter(Boolean))] as string[]);
+  // Select the stable array and derive here: a selector returning a fresh array re-renders forever.
+  const connections = useConnections((s) => s.connections);
+  const groups = useMemo(() => [...new Set(connections.map((c) => c.group).filter(Boolean))] as string[], [connections]);
 
   const [form, setForm] = useState<ConnectionInput>(EMPTY);
   const [hasStoredPassword, setHasStoredPassword] = useState(false);

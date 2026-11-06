@@ -43,6 +43,7 @@ export function CommandPalette() {
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen} title="Command palette" description="Search commands, tables and connections" className="sm:max-w-xl">
+      <Command>
       <CommandInput placeholder="Type a command or search tables…" />
       <CommandList className="max-h-[420px]">
         <CommandEmpty>No results.</CommandEmpty>

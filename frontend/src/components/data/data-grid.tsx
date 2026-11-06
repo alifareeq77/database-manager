@@ -513,6 +513,8 @@ const GridRow = memo(function GridRow(p: RowProps) {
   );
 });
 
+const EDITOR_CLASS = "absolute inset-0 z-10 w-full bg-background px-2 font-mono text-[12px] outline-2 -outline-offset-2 outline-primary";
+
 function CellEditor({ initial, category, onDone }: { initial: CellValue; category: TypeCategory; onDone: (v: string | undefined) => void }) {
   const text = initial === null || initial === undefined ? "" : typeof initial === "object" ? JSON.stringify(initial) : String(initial);
   const [value, setValue] = useState(text);
@@ -541,10 +543,9 @@ function CellEditor({ initial, category, onDone }: { initial: CellValue; categor
         finish(value);
       }
     },
-    className: "absolute inset-0 z-10 w-full bg-background px-2 font-mono text-[12px] outline-2 -outline-offset-2 outline-primary",
   };
-  if (multiline) return <textarea {...common} rows={1} className={cn(common.className, "absolute top-0 h-[120px] resize-none py-1 shadow-lg")} />;
-  return <input {...common} />;
+  if (multiline) return <textarea {...common} rows={1} className={cn(EDITOR_CLASS, "absolute top-0 h-[120px] resize-none py-1 shadow-lg")} />;
+  return <input {...common} className={EDITOR_CLASS} />;
 }
 
 function ValueViewer({ viewer, onClose }: { viewer: { column: string; value: CellValue } | null; onClose: () => void }) {

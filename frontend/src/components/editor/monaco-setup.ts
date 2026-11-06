@@ -11,7 +11,7 @@ declare global {
 
 window.MonacoEnvironment = {
   getWorker() {
-    return new Worker(new URL("monaco-editor/esm/vs/editor/editor.worker.js", import.meta.url), { type: "module" });
+    return new Worker(new URL("monaco-editor/editor/editor.worker.js", import.meta.url), { type: "module" });
   },
 };
 
